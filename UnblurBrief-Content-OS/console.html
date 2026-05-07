@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>UnblurBrief Content OS V8</title>
+<style>
+:root{
+  --bg:#080b12;--panel:#101622;--panel2:#151d2c;--text:#f7f8fb;--muted:#9aa4b2;
+  --line:rgba(255,255,255,.12);--accent:#ff9f1c;--accent2:#ffd08a;--green:#65e3a1;--red:#ff6b6b;--yellow:#ffd166;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,sans-serif;background:radial-gradient(circle at top left,rgba(255,159,28,.14),transparent 34%),var(--bg);color:var(--text)}
+.app{display:grid;grid-template-columns:360px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:22px;background:rgba(10,14,24,.82);height:100vh;overflow:auto;position:sticky;top:0}
+main{padding:28px}
+.brand{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+.logo{width:42px;height:42px;border-radius:12px;background:#121a29;color:var(--accent);display:grid;place-items:center;font-weight:900}
+.brand h1{margin:0;font-size:18px}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
+button,label,select{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 13px;border-radius:14px;font-weight:700}
+select{width:100%;appearance:none}
+button.primary{background:linear-gradient(135deg,#ff9f1c,#ffb84f);color:#111;border:none}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=file]{display:none}
+.controls{display:grid;gap:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:22px;padding:16px}
+.hint{font-size:12px;color:var(--muted);line-height:1.45}
+.search{width:100%;background:#090e19;border:1px solid var(--line);color:var(--text);padding:12px;border-radius:14px;margin:14px 0}
+.candidate-list{display:grid;gap:9px}
+.candidate{padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.04);text-align:left;width:100%}
+.candidate.active{border-color:var(--accent);background:rgba(255,159,28,.12)}
+.title{font-size:13px;font-weight:800;line-height:1.3}
+.meta{margin-top:7px;color:var(--muted);font-size:11px;display:flex;gap:8px;flex-wrap:wrap}
+h2{font-size:32px;margin:0 0 8px}
+.sub{color:var(--muted);margin-bottom:20px}
+.view{border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:26px;overflow:hidden}
+.header{padding:22px;background:linear-gradient(135deg,rgba(255,159,28,.16),rgba(255,255,255,.02)),var(--panel);border-bottom:1px solid var(--line)}
+.header h1{margin:0;font-size:24px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.badge{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:rgba(255,255,255,.06)}
+.verified{color:var(--green);background:rgba(101,227,161,.12)}
+.caution{color:var(--yellow);background:rgba(255,209,102,.12)}
+.blocked,.failed{color:var(--red);background:rgba(255,107,107,.12)}
+.section{padding:22px;border-bottom:1px solid var(--line)}
+.section h3{margin:0 0 12px;color:var(--accent2)}
+.box,textarea{white-space:pre-wrap;background:#090e19;border:1px solid var(--line);border-radius:18px;padding:18px;color:#eef3ff;line-height:1.55;font-size:14px;width:100%}
+.box{max-height:520px;overflow:auto}
+textarea{min-height:220px;resize:vertical;font-family:inherit}
+.warning{border:1px solid rgba(255,107,107,.38);background:rgba(255,107,107,.10);border-radius:16px;padding:14px;color:#ffd6d6;margin-top:12px}
+.info{border:1px solid rgba(255,209,102,.28);background:rgba(255,209,102,.08);border-radius:16px;padding:14px;color:#ffe6a3;margin-top:12px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.status{color:var(--green);font-size:12px;min-height:18px;margin-top:8px}
+.panel{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:rgba(255,255,255,.025)}
+.panel-h{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.035)}
+.panel-h h4{margin:0;color:var(--accent2)}
+.output{white-space:pre-wrap;background:#090e19;padding:18px;color:#eef3ff;line-height:1.55;min-height:190px;max-height:520px;overflow:auto}
+.small{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}
+@media(max-width:1000px){.app{grid-template-columns:1fr}aside{height:auto;position:relative}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <div class="logo">UB</div>
+      <div>
+        <h1>UnblurBrief</h1>
+        <p>Content OS V16 — text-only content prompt</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" id="loadBtn">Load candidates</button>
+      <button id="loadPibBtn">All PIB Releases</button>
+      <label for="fileInput">Open candidates manually</label>
+      <input id="fileInput" type="file" accept=".json">
+      <div>
+        <div class="hint" style="margin-bottom:6px">Output format</div>
+        <select id="aspectRatioSelect">
+          <option value="4:5" selected>4:5 portrait post (1080×1350)</option>
+          <option value="1:1">1:1 square post (1080×1080)</option>
+          <option value="9:16">9:16 story / reel cover (1080×1920)</option>
+        </select>
+      </div>
+      <div>
+        <div class="hint" style="margin-bottom:6px">Category lane</div>
+        <select id="categoryFilter">
+          <option value="all" selected>All categories</option>
+          <option value="India">India</option>
+          <option value="Technology">Technology</option>
+          <option value="Business">Business / Economy</option>
+          <option value="Current Affairs">Current Affairs</option>
+          <option value="World">World</option>
+        </select>
+      </div>
+      <div>
+        <div class="hint" style="margin-bottom:6px">Slide count</div>
+        <select id="slideFilter">
+          <option value="auto" selected>Auto / All</option>
+          <option value="3">3 slides</option>
+          <option value="4">4 slides</option>
+          <option value="5">5 slides</option>
+          <option value="6">6 slides</option>
+        </select>
+      </div>
+
+      <div class="hint">
+        Workflow:
+        1) Copy the content prompt
+        2) Run OPEN_CHATGPT_BRAVE_PROFILE.bat
+        3) Paste ChatGPT's full output back here
+        4) Download the 5 generated slides
+        5) Run IMPORT_LATEST_5_SLIDES.bat
+      </div>
+    </div>
+
+
+    <div class="controls" style="margin-top:14px">
+      <div class="hint"><strong>Local workflow actions</strong></div>
+      <button class="primary" onclick="callLocalAction('/api/connect-canva','Connect Canva')">Connect Canva</button>
+      <button onclick="callLocalAction('/api/check-canva-auth','Check Canva Auth')">Check Canva Auth</button>
+      <button onclick="callLocalAction('/api/refresh-canva-token','Refresh Canva Token')">Refresh Canva Token</button>
+      <button onclick="callLocalAction('/api/open-chatgpt','Open ChatGPT')">Open ChatGPT</button>
+      <button onclick="callLocalAction('/api/open-canva','Open Canva')">Open Canva</button>
+      <button onclick="importRecommended(false)">Import Recommended Slides</button>
+      <button class="primary" onclick="importRecommended(true)">Import Recommended + Send to Canva</button>
+      <button onclick="importFixed(3,false)">Import Latest 3</button>
+      <button onclick="importFixed(4,false)">Import Latest 4</button>
+      <button onclick="importFixed(5,false)">Import Latest 5</button>
+      <button onclick="importFixed(6,false)">Import Latest 6</button>
+      <button onclick="callLocalAction('/api/send-latest-post-to-canva','Send Latest Post to Canva')">Send Latest Post to Canva</button>
+      <button onclick="callLocalAction('/api/open-generated-posts-folder','Open Generated Posts Folder')">Open Posts Folder</button>
+      <button onclick="callLocalAction('/api/cache-status','Cache Status')">Cache Status</button>
+      <button onclick="callLocalAction('/api/save-today-cache','Save Today Cache')">Save Today Cache</button>
+      <button class="primary" onclick="verifySelectedSource()">Verify Selected Source</button>
+      <button class="primary" onclick="callLocalAction('/api/rebuild-from-today-cache','Rebuild Candidates From Today Cache')">Rebuild Candidates From Today Cache</button>
+      <button onclick="callLocalAction('/api/rebuild-from-latest-cache','Rebuild From Latest Cache')">Rebuild From Latest Cache</button>
+      <div id="localActionStatus" class="hint"></div>
+    </div>
+
+    <input id="search" class="search" placeholder="Search candidates...">
+    <div id="list" class="candidate-list"></div>
+  </aside>
+
+  <main>
+    <h2>Production Console</h2>
+    <div class="sub">The app focuses on 3 outputs with dynamic 3–6 slide counts. V28.1 includes a working Verify Selected Source button for source_check_required candidates. Use the recommended slide count shown on each candidate, then import the matching number of downloads into a per-post folder.</div>
+    <div id="content"><div class="view"><div class="section">No candidates loaded.</div></div></div>
+  </main>
+</div>
+
+<script>
+const TOP_PATH="output/top_post_candidates.json";
+const PIB_PATH="output/pib_all_releases.json";
+let candidates=[], topCandidates=[], selected=0, parsed={}, lastRawOutput="", currentView="top";
+const list=document.getElementById("list"), content=document.getElementById("content"), search=document.getElementById("search"), aspectRatioSelect=document.getElementById("aspectRatioSelect"), categoryFilter=document.getElementById("categoryFilter"), slideFilter=document.getElementById("slideFilter");
+
+function getAspectConfig(){
+  const value=(aspectRatioSelect && aspectRatioSelect.value) || "4:5";
+  if(value === "1:1") return {
+    value,
+    label: "1:1 square",
+    recommended: "1080×1080",
+    intro: "Create a premium Instagram carousel for UnblurBrief as 5 separate square images.",
+    format: `Generate 5 separate full-size 1:1 square images.\nEach image must be one standalone Instagram carousel slide in square Instagram post format.\nUse 1:1 aspect ratio for every slide (recommended 1080×1080).\nDo NOT create 4:5 portrait or 9:16 vertical slides unless the user explicitly asks for them.`
+  };
+  if(value === "9:16") return {
+    value,
+    label: "9:16 vertical",
+    recommended: "1080×1920",
+    intro: "Create a premium Instagram vertical slide set for UnblurBrief as 5 separate vertical images.",
+    format: `Generate 5 separate full-size 9:16 vertical images.\nEach image must be one standalone Instagram story / reel-cover style slide.\nUse 9:16 aspect ratio for every slide (recommended 1080×1920).\nDo NOT create 1:1 square or 4:5 portrait slides unless the user explicitly asks for them.`
+  };
+  return {
+    value: "4:5",
+    label: "4:5 portrait",
+    recommended: "1080×1350",
+    intro: "Create a premium Instagram carousel for UnblurBrief as 5 separate portrait images.",
+    format: `Generate 5 separate full-size 4:5 portrait images.\nEach image must be one standalone Instagram carousel slide in portrait Instagram post format.\nUse 4:5 aspect ratio for every slide (recommended 1080×1350).\nDo NOT create square 1:1 slides or 9:16 vertical slides unless the user explicitly asks for them.`
+  };
+}
+
+function esc(t){return String(t||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")}
+function slug(t){return String(t||"unblurbrief-post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,80)||"unblurbrief-post"}
+function badgeClass(s){if(s==="verified")return"verified"; if(s==="usable_with_caution")return"caution"; if(s==="failed")return"failed"; return"blocked"}
+function stateLabel(s){return {verified:"Verified",usable_with_caution:"Usable with caution",source_check_required:"Source check required",failed:"Failed extraction"}[s]||s||"Unknown"}
+function recommendedSlideCount(c){return Number(c && c.recommended_slide_count ? c.recommended_slide_count : 5)}
+function recommendedStructure(c){return Array.isArray(c && c.recommended_structure) ? c.recommended_structure : []}
+function categoryLane(c){return c.category_lane || c.category || "Current Affairs"}
+function scoreBreakdownText(c){const b=c.score_breakdown||{};return Object.entries(b).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).map(([k,v])=>`${k}: ${v>0?"+":""}${v}`).join(" · ")}
+function isPib(c){return c && (c.source_type==="pib_all_releases" || String(c.source||"").toLowerCase().includes("pib delhi all releases"))}
+function pibLabel(c){if(!isPib(c)) return ""; if(c.pib_priority_label) return c.pib_priority_label; const s=Number(c.pib_newsworthiness_score||0); return s>=70?"strong":s>=55?"usable":"routine"}
+function pibScoreLine(c){if(!isPib(c)) return ""; const score=c.pib_newsworthiness_score||"0"; return "PIB " + pibLabel(c) + " · " + score}
+function pibReasons(c){return c.pib_score_reasons || c.pib_filter_reasons || ""}
+function viewLabel(){return currentView==="pib" ? "All PIB Releases" : currentView==="manual" ? "Manual JSON" : "Recommended Picks"}
+function backendCandidateIndex(c){if(currentView==="top") return selected; return topCandidates.findIndex(x => x.url === (c && c.url))}
+function copyText(t,label){if(!t)return; navigator.clipboard.writeText(t).then(()=>{const s=document.getElementById("status"); if(s){s.textContent=label+" copied."; setTimeout(()=>s.textContent="",1400)}})}
+function downloadText(filename,text,type="text/plain"){const blob=new Blob([text],{type:type+";charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)}
+
+function section(text,h,all){
+  const u=text.toUpperCase();
+  let start=u.indexOf("## "+h);
+  if(start<0) start=u.indexOf(h+":");
+  if(start<0) start=u.indexOf(h);
+  if(start<0) return "";
+  let contentStart=start + (u.startsWith("## "+h,start)?("## "+h).length:h.length);
+  let end=text.length;
+  for(const x of all.filter(v=>v!==h)){
+    for(const p of ["## "+x, x+":", x]){
+      const idx=u.indexOf(p, contentStart);
+      if(idx>=0 && idx<end) end=idx;
+    }
+  }
+  return text.slice(contentStart,end).trim();
+}
+
+function parseOutput(t){
+  const hs=["CAROUSEL_TITLE","SLIDE_COPY","VISUAL_DIRECTION","CAPTION","HASHTAGS","VERIFICATION_CHECKLIST","VISUAL_PROMPT_FOR_LATER_USE","IMAGE_GENERATION_PROMPT","STATUS","REASON","KNOWN_METADATA","MISSING_INFORMATION","VERIFICATION_TASKS","NON_PUBLISHABLE_OUTLINE_ONLY","NEXT_ACTION"];
+  return {
+    title:section(t,"CAROUSEL_TITLE",hs),
+    slide:section(t,"SLIDE_COPY",hs) || section(t,"NON_PUBLISHABLE_OUTLINE_ONLY",hs),
+    visual:section(t,"VISUAL_DIRECTION",hs),
+    caption:section(t,"CAPTION",hs),
+    hashtags:section(t,"HASHTAGS",hs),
+    verification:section(t,"VERIFICATION_CHECKLIST",hs) || section(t,"VERIFICATION_TASKS",hs),
+    image:"",
+    status:section(t,"STATUS",hs),
+    reason:section(t,"REASON",hs)
+  };
+}
+
+function buildFinalImagePrompt(p, c){
+  if(!p.slide && !p.title) return "";
+  const parts = [];
+  const aspect = getAspectConfig();
+  const slideCount = recommendedSlideCount(c);
+  const slideWord = slideCount === 1 ? "image" : "images";
+
+  const routeName = c.design_route && c.design_route.name ? c.design_route.name : "";
+  const routeSummary = c.design_route && c.design_route.summary ? c.design_route.summary : "";
+  const colorMood = c.color_mood && c.color_mood.name ? c.color_mood.name : "";
+  const colorPalette = c.color_mood && c.color_mood.palette ? c.color_mood.palette : "";
+  const imageStyle = c.image_led_style || "";
+  const layoutFamily = c.layout_family || "";
+  const heroMetaphor = c.hero_metaphor || "";
+  const slideFlow = c.slide_flow_pattern || "";
+
+  parts.push(`COLORFUL IMAGE-LED CAROUSEL GENERATION BRIEF:
+Create a premium Instagram carousel visual for UnblurBrief as ${slideCount} separate ${aspect.label} ${slideWord}.
+
+CRITICAL OUTPUT FORMAT:
+${aspect.format.replaceAll("5 separate", slideCount + " separate")}
+Do NOT create a single combined preview.
+Do NOT create a contact sheet.
+Do NOT create a collage, grid, storyboard, mockup, or Canva/editor preview.
+Do NOT place multiple slides on one canvas.
+Make each slide fill the full ${aspect.label} canvas cleanly with safe margins for mobile readability.
+Output exactly ${slideCount} separate images: ${Array.from({length: slideCount}, (_,i)=>"Slide "+(i+1)).join(", ")}.
+
+VISUAL STYLE:
+Create this as a colorful, image-led, eye-catching editorial carousel — not a dark text-heavy dashboard.
+Treat UnblurBrief as a brand system, not as a fixed dark template.
+Keep only these constants stable: premium high-trust editorial tone, clear hierarchy, compact UB/@unblurbrief footer zone, and small orange/UB identity accents.
+Do NOT default to dark navy/black. Use vivid editorial color, light canvas, bold gradients, vibrant blocks, or cinematic color fields when appropriate.
+Use a strong symbolic hero image/illustration/object as the visual center of gravity.
+Use pixel/document/cursor motifs only as small micro-textures unless explicitly required by the approved design metadata.
+
+TEXT CONTROL:
+Use ONLY the approved slide copy below.
+Do not rewrite, add, summarize, expand, invent, or add extra facts.
+Keep all text mobile-readable.`);
+
+  const metadata = [];
+  if(c.visual_style) metadata.push("Design style: " + c.visual_style);
+  if(c.visual_elements) metadata.push("Relevant design elements: " + c.visual_elements);
+  if(c.image_safety_note) metadata.push("Safety: " + c.image_safety_note);
+  if(routeName) metadata.push("Creative route: " + routeName + (routeSummary ? " — " + routeSummary : ""));
+  if(layoutFamily) metadata.push("Layout family: " + layoutFamily);
+  if(heroMetaphor) metadata.push("Hero metaphor: " + heroMetaphor);
+  if(slideFlow) metadata.push("Slide-flow pattern: " + slideFlow);
+  if(c.recommended_slide_count) metadata.push("Recommended slide count: " + c.recommended_slide_count);
+  if(c.recommended_structure) metadata.push("Required slide structure: " + c.recommended_structure.join(" -> "));
+  if(colorMood || colorPalette) metadata.push("Color mood: " + colorMood + (colorPalette ? " — " + colorPalette : ""));
+  if(imageStyle) metadata.push("Image-led style: " + imageStyle);
+
+  if(metadata.length){
+    parts.push("APP-SIDE DESIGN METADATA:\n" + metadata.join("\n"));
+  }
+
+  if(p.title){
+    parts.push("CAROUSEL TITLE:\n" + p.title.trim());
+  }
+
+  if(p.slide){
+    parts.push("APPROVED SLIDE COPY — use exactly as written:\n" + p.slide.trim());
+  }
+
+  if(p.visual){
+    parts.push("OPTIONAL GPT VISUAL NOTES IF PRESENT:\n" + p.visual.trim());
+  }
+
+  return parts.join("\n\n");
+}
+
+function buildCaptionBlock(p){
+  let out = "";
+  if(p.caption) out += p.caption.trim();
+  if(p.hashtags){
+    if(out) out += "\n\n";
+    out += p.hashtags.trim();
+  }
+  return out;
+}
+
+function importPayloadForSelected(c, count){
+  const candidateIndex=backendCandidateIndex(c);
+  const payload={count:count};
+  if(candidateIndex >= 0){
+    payload.candidate_index = candidateIndex;
+  }else{
+    // All PIB Releases cards are allowed to package even when they are not in
+    // top_post_candidates.json. Pass the selected item directly so the backend
+    // can write the correct candidate_source.json and post folder metadata.
+    payload.item = c;
+    payload.source_file = currentView === "pib" ? "pib_all_releases" : "manual";
+  }
+  return payload;
+}
+
+function importRecommended(sendCanva){
+  const c=candidates[selected]||{};
+  if(!c || !c.title){
+    alert("No candidate selected.");
+    return;
+  }
+  const count=recommendedSlideCount(c);
+  const path=sendCanva ? "/api/import-latest-slides-and-send-canva" : "/api/import-latest-slides";
+  callLocalAction(path, sendCanva ? "Import recommended + send to Canva" : "Import recommended slides", importPayloadForSelected(c,count));
+}
+
+function importFixed(count, sendCanva){
+  const c=candidates[selected]||{};
+  if(!c || !c.title){
+    alert("No candidate selected.");
+    return;
+  }
+  const path=sendCanva ? "/api/import-latest-slides-and-send-canva" : "/api/import-latest-slides";
+  callLocalAction(path, sendCanva ? ("Import " + count + " + send to Canva") : ("Import latest " + count), importPayloadForSelected(c,count));
+}
+
+
+async function verifySelectedSource(){
+  const c = candidates[selected] || {};
+  const label = "Verify selected source";
+  const status = document.getElementById("localActionStatus");
+
+  if(!c || !c.url){
+    alert("No candidate URL found for this selection.");
+    return;
+  }
+  const candidateIndex=backendCandidateIndex(c);
+  const isPibBrowseItem = candidateIndex < 0 && (currentView === "pib" || c.source_type === "pib_all_releases" || String(c.source || "").includes("PIB Delhi"));
+
+  if(candidateIndex < 0 && !isPibBrowseItem){
+    alert("This selected item is not currently in top_post_candidates.json and cannot be verified from this view.");
+    return;
+  }
+
+  if(status){
+    status.textContent = "Extracting source content. This can take 20–90 seconds. Do not click again…";
+  }
+
+  try{
+    const payload = isPibBrowseItem
+      ? {source_file:"pib_all_releases", item:c, add_to_top:true}
+      : {candidate_index:candidateIndex};
+
+    const r = await fetch("/api/extract-selected-source", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    let data = {};
+    try{
+      data = await r.json();
+    }catch(parseErr){
+      throw new Error("Backend returned a non-JSON response. Check the command window for the Python error.");
+    }
+
+    if(!r.ok || !data.ok){
+      throw new Error(data.error || ("HTTP " + r.status));
+    }
+
+    const result = data.result || {};
+    if(status){
+      status.textContent = `Source extraction complete: ${result.extraction_status || "unknown"} · ${result.word_count || 0} words · ${result.new_reliability_state || ""}. Reloading candidates…`;
+    }
+
+    if(currentView === "pib"){
+      await loadAllPib();
+    }else{
+      await loadDefault();
+    }
+
+    const idx = candidates.findIndex(x => x.url === c.url);
+    if(idx >= 0){
+      selected = idx;
+    }
+
+    parsed = {};
+    lastRawOutput = "";
+    renderList();
+    render();
+
+    if(status){
+      status.textContent = `Verified source: ${result.extraction_status || "unknown"} · ${result.word_count || 0} words · ${result.new_reliability_state || ""}`;
+    }
+  }catch(err){
+    if(status){
+      status.textContent = label + " failed: " + err.message;
+    }
+    alert(label + " failed:\n" + err.message);
+  }
+}
+
+
+
+async function callLocalAction(path, label, payload){
+  const status = document.getElementById("localActionStatus");
+  if(status) status.textContent = label + "…";
+  try{
+    const r = await fetch(path, { method: "POST", headers: {"Content-Type":"application/json"}, body: payload ? JSON.stringify(payload) : undefined });
+    const data = await r.json();
+    if(!r.ok || !data.ok){
+      throw new Error(data.error || ("HTTP " + r.status));
+    }
+    let msg = label + " complete.";
+    const folder = data.post_folder || (data.result && data.result.post_folder);
+    const edit = data.result && data.result.edit_url;
+    if(folder) msg += " Folder: " + folder;
+    if(edit) msg += " Canva edit link opened.";
+    if(data.result && data.result.seconds_remaining !== undefined) msg += " Canva token seconds remaining: " + data.result.seconds_remaining;
+    if(data.result && data.result.message) msg += " " + data.result.message;
+    if(status) status.textContent = msg;
+  }catch(err){
+    if(status) status.textContent = label + " failed: " + err.message;
+    alert(label + " failed:\n" + err.message);
+  }
+}
+
+function renderList(){
+  const q=search.value.toLowerCase();
+  const cat=(categoryFilter && categoryFilter.value) || "all";
+  const slide=(slideFilter && slideFilter.value) || "auto";
+  list.innerHTML="";
+  const heading=document.createElement("div");
+  heading.className="hint";
+  heading.textContent=viewLabel() + " - " + candidates.length + " item(s)";
+  list.appendChild(heading);
+  candidates.forEach((c,i)=>{
+    const lane=categoryLane(c);
+    const sc=String(recommendedSlideCount(c));
+    const hay=(c.title+" "+c.source+" "+c.category+" "+c.category_lane+" "+c.content_angle+" "+c.reliability_state+" "+(c.ministry||"")+" "+pibLabel(c)).toLowerCase();
+    if(q && !hay.includes(q)) return;
+    if(cat !== "all" && lane !== cat && !(cat==="Business" && (lane==="Economy" || lane==="Business"))) return;
+    if(slide !== "auto" && sc !== slide) return;
+    const b=document.createElement("button");
+    b.className="candidate"+(i===selected?" active":"");
+    b.innerHTML=`<div class="title">${esc(c.title)}</div>
+      <div class="meta">
+        <span>Score ${esc(c.score)}</span>
+        <span>${esc(lane)}</span>
+        <span>${esc(sc)} slides</span>
+        <span>${esc(c.source)}</span>
+        ${isPib(c) ? `<span>${esc(pibScoreLine(c))}</span>` : ""}
+        ${isPib(c) ? `<span>${c.recommended_candidate ? "recommended" : "all PIB"}</span>` : ""}
+        <span class="${badgeClass(c.reliability_state)}">${stateLabel(c.reliability_state)}</span>
+      </div>`;
+    b.onclick=()=>{selected=i; parsed={}; lastRawOutput=""; renderList(); render();};
+    list.appendChild(b);
+  });
+}
+
+function render(){
+  const c=candidates[selected];
+  if(!c){content.innerHTML="<div class='view'><div class='section'>No candidate.</div></div>"; return;}
+  const blocked=!c.is_publishable_source;
+  const backendIndex=backendCandidateIndex(c);
+  const pibBrowseOnly=currentView==="pib" && backendIndex < 0;
+  const finalImagePrompt=buildFinalImagePrompt(parsed,c);
+  const captionBlock=buildCaptionBlock(parsed);
+
+  content.innerHTML = `
+    <div class="view">
+      <div class="header">
+        <h1>${esc(c.title)}</h1>
+        <div class="badges">
+          <span class="badge">Score ${esc(c.score)}</span>
+          <span class="badge">${esc(c.source)}</span>
+          ${c.ministry ? `<span class="badge">${esc(c.ministry)}</span>` : ""}
+          ${isPib(c) ? `<span class="badge">${esc(pibScoreLine(c))}</span>` : ""}
+          <span class="badge">${esc(categoryLane(c))}</span>
+          <span class="badge">${esc(recommendedSlideCount(c))} slides</span>
+          <span class="badge">${esc(c.trust_role || "unknown")}</span>
+          <span class="badge ${badgeClass(c.reliability_state)}">${stateLabel(c.reliability_state)} · ${esc(c.reliability_score)}/100</span>
+        </div>
+        ${blocked
+          ? pibBrowseOnly
+            ? `<div class="info"><strong>All PIB Releases:</strong> this release is saved in output/pib_all_releases.json and is browseable here, but it is not one of the recommended top candidates.</div>`
+            : `<div class="warning"><strong>Source Check Required:</strong> this candidate is currently blocked for final post generation unless you improve the source quality or use a manual article override.</div>`
+          : `<div class="info"><strong>Publishable mode:</strong> use the content prompt below, paste the result back, and the app will give you the final image prompt in the selected format plus caption/hashtags.</div>`
+        }
+        <div class="small"><strong>Recommended structure:</strong> ${esc(recommendedStructure(c).join(" → ") || "standard brief")}</div>
+        <div class="actions" style="margin-top:12px">
+          ${(backendIndex >= 0 || pibBrowseOnly) ? `<button class="primary" onclick="verifySelectedSource()">Extract / Verify This Source</button>` : ""}
+          <button onclick="window.open('${esc(c.url)}','_blank')">Open Source URL</button>
+        </div>\n        <div class="small"><strong>Score breakdown:</strong> ${esc(scoreBreakdownText(c) || "not available")}</div>
+        ${isPib(c) && pibReasons(c) ? `<div class="small"><strong>PIB score reasons:</strong> ${esc(pibReasons(c))}</div>` : ""}
+      </div>
+
+      <div class="section">
+        <h3>1) Content Prompt</h3>
+        <div class="actions">
+          <button onclick="copyText(candidates[selected].content_prompt,'Content prompt')">Copy content prompt</button>
+          <button onclick="downloadText('content_prompt_${slug(c.title)}.txt', candidates[selected].content_prompt)">Download</button>
+        </div>
+        <div class="box" style="margin-top:12px">${esc(c.content_prompt || "")}</div>
+      </div>
+
+      <div class="section">
+        <h3>Paste ChatGPT Output</h3>
+        <textarea id="gpt" placeholder="Paste the full ChatGPT output here...">${esc(lastRawOutput)}</textarea>
+        <div class="actions" style="margin-top:12px">
+          <button class="primary" id="parse">Separate outputs</button>
+        </div>
+        <div id="status" class="status"></div>
+        <div class="small">The app will extract only the two things you need next: the final image prompt in the selected format, and caption + hashtags.</div>
+      </div>
+
+      <div class="section">
+        <h3>2) Final Image Prompt</h3>
+        <div class="panel">
+          <div class="panel-h">
+            <h4>Use this with ChatGPT Images</h4>
+            <div class="actions">
+              <button onclick="copyText(buildFinalImagePrompt(parsed,candidates[selected]),'Final image prompt')">Copy</button>
+              <button onclick="downloadText('image_prompt_${slug(c.title)}.txt', buildFinalImagePrompt(parsed,candidates[selected]))" ${finalImagePrompt ? "" : "disabled"}>Download</button>
+            </div>
+          </div>
+          <div class="output">${esc(finalImagePrompt || "Paste the full ChatGPT output above, then click 'Separate outputs'. The app will build the final image-generation prompt here.")}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>3) Caption + Hashtags</h3>
+        <div class="panel">
+          <div class="panel-h">
+            <h4>Ready to post</h4>
+            <div class="actions">
+              <button onclick="copyText(buildCaptionBlock(parsed),'Caption + hashtags')">Copy</button>
+              <button onclick="downloadText('caption_hashtags_${slug(c.title)}.txt', buildCaptionBlock(parsed))" ${captionBlock ? "" : "disabled"}>Download</button>
+            </div>
+          </div>
+          <div class="output">${esc(captionBlock || "Caption and hashtags will appear here after parsing the ChatGPT output.")}</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("parse").onclick=()=>{
+    lastRawOutput=document.getElementById("gpt").value;
+    parsed=parseOutput(lastRawOutput);
+    render();
+  };
+}
+
+async function loadDefault(){
+  const r = await fetch(TOP_PATH + "?t=" + Date.now());
+  if(!r.ok) throw new Error("Could not load " + TOP_PATH);
+  candidates = await r.json();
+  topCandidates = candidates.slice();
+  currentView = "top";
+  selected = 0;
+  parsed = {};
+  lastRawOutput = "";
+  renderList();
+  render();
+}
+
+async function loadAllPib(){
+  const top = await fetch(TOP_PATH + "?t=" + Date.now());
+  topCandidates = top.ok ? await top.json() : [];
+  const r = await fetch(PIB_PATH + "?t=" + Date.now());
+  if(!r.ok) throw new Error("Could not load " + PIB_PATH + ". Run START_HERE.bat once after this patch to generate it.");
+  candidates = await r.json();
+  currentView = "pib";
+  selected = 0;
+  parsed = {};
+  lastRawOutput = "";
+  renderList();
+  render();
+}
+
+document.getElementById("loadBtn").onclick=()=>loadDefault().catch(e=>alert(e.message));
+document.getElementById("loadPibBtn").onclick=()=>loadAllPib().catch(e=>alert(e.message));
+document.getElementById("fileInput").onchange=async e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  candidates=JSON.parse(await f.text());
+  currentView="manual";
+  selected=0; parsed={}; lastRawOutput="";
+  renderList(); render();
+};
+search.oninput=renderList;
+if(categoryFilter){ categoryFilter.onchange=renderList; }
+if(slideFilter){ slideFilter.onchange=renderList; }
+if(aspectRatioSelect){ aspectRatioSelect.onchange=render; }
+</script>
+</body>
+</html>

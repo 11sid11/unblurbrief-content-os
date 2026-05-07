@@ -1,0 +1,6 @@
+Use the app button: Verify Selected Source / Extract Verify This Source.
+
+Command-line advanced use:
+python extract_selected_source.py --index 0
+
+The index is the candidate index inside output/top_post_candidates.json.
